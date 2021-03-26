@@ -65,13 +65,20 @@ class Cell
     protected $style;
 
     /**
+     * The cell comment
+     * @var Comment
+     */
+    protected $comment;
+
+    /**
      * @param $value mixed
      * @param Style|null $style
      */
-    public function __construct($value, Style $style = null)
+    public function __construct($value, Style $style = null, Comment $comment = null) 
     {
         $this->setValue($value);
         $this->setStyle($style);
+        $this->setComment($comment);
     }
 
     /**
@@ -113,6 +120,30 @@ class Cell
     public function getStyle()
     {
         return $this->style;
+    }
+
+    /**
+     * @param Comment|null $comment
+     */
+    public function setComment($comment)
+    {
+        $this->comment = $comment ?: new Comment();
+    }
+
+    /**
+     * @return Comment
+     */
+    public function getComment()
+    {
+        return $this->comment;
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasComment()
+    {
+        return $this->comment != null && $this->comment->getValue() != null;
     }
 
     /**
