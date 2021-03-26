@@ -14,6 +14,7 @@ use Box\Spout\Writer\XLSX\Manager\Style\StyleManager;
 use Box\Spout\Writer\XLSX\Manager\Style\StyleRegistry;
 use Box\Spout\Writer\XLSX\Manager\WorkbookManager;
 use Box\Spout\Writer\XLSX\Manager\WorksheetManager;
+use Box\Spout\Writer\XLSX\Helper\FileSystemHelper;
 
 /**
  * Class ManagerFactory
@@ -53,7 +54,7 @@ class ManagerFactory implements ManagerFactoryInterface
 
         $styleMerger = $this->createStyleMerger();
         $styleManager = $this->createStyleManager($optionsManager);
-        $worksheetManager = $this->createWorksheetManager($optionsManager, $styleManager, $styleMerger, $sharedStringsManager);
+        $worksheetManager = $this->createWorksheetManager($optionsManager, $styleManager, $styleMerger, $sharedStringsManager, $fileSystemHelper);
 
         return new WorkbookManager(
             $workbook,
@@ -78,7 +79,8 @@ class ManagerFactory implements ManagerFactoryInterface
         OptionsManagerInterface $optionsManager,
         StyleManager $styleManager,
         StyleMerger $styleMerger,
-        SharedStringsManager $sharedStringsManager
+        SharedStringsManager $sharedStringsManager,
+        FilesystemHelper $filesystemHelper
     ) {
         $rowManager = $this->createRowManager();
         $stringsEscaper = $this->helperFactory->createStringsEscaper();
@@ -92,6 +94,7 @@ class ManagerFactory implements ManagerFactoryInterface
             $sharedStringsManager,
             $stringsEscaper,
             $stringsHelper,
+            $filesystemHelper,
             $this->entityFactory
         );
     }

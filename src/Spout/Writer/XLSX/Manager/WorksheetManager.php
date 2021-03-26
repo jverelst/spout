@@ -18,6 +18,7 @@ use Box\Spout\Writer\Common\Manager\RowManager;
 use Box\Spout\Writer\Common\Manager\Style\StyleMerger;
 use Box\Spout\Writer\Common\Manager\WorksheetManagerInterface;
 use Box\Spout\Writer\XLSX\Manager\Style\StyleManager;
+use Box\Spout\Writer\XLSX\Helper\FileSystemHelper;
 
 /**
  * Class WorksheetManager
@@ -53,11 +54,17 @@ EOD;
     /** @var SharedStringsManager Helper to write shared strings */
     private $sharedStringsManager;
 
+    /** @var CommentsManager Helper to write comments */
+    private $commentsManager;
+    
     /** @var XLSXEscaper Strings escaper */
     private $stringsEscaper;
 
     /** @var StringHelper String helper */
     private $stringHelper;
+
+    /** @var FilesSytemHelper Filesystem helper */
+    private $fileSystemHelper;
 
     /** @var InternalEntityFactory Factory to create entities */
     private $entityFactory;
@@ -82,6 +89,7 @@ EOD;
         SharedStringsManager $sharedStringsManager,
         XLSXEscaper $stringsEscaper,
         StringHelper $stringHelper,
+        FilesystemHelper $fileSystemHelper,
         InternalEntityFactory $entityFactory
     ) {
         $this->shouldUseInlineStrings = $optionsManager->getOption(Options::SHOULD_USE_INLINE_STRINGS);
@@ -91,6 +99,7 @@ EOD;
         $this->sharedStringsManager = $sharedStringsManager;
         $this->stringsEscaper = $stringsEscaper;
         $this->stringHelper = $stringHelper;
+        $this->fileSystemHelper = $fileSystemHelper;
         $this->entityFactory = $entityFactory;
     }
 
@@ -100,6 +109,14 @@ EOD;
     public function getSharedStringsManager()
     {
         return $this->sharedStringsManager;
+    }
+
+    /**
+     * @return CommentsManager
+     */
+    public function getCommentsManager()
+    {
+        return $this->commentsManager;
     }
 
     /**
@@ -114,6 +131,36 @@ EOD;
 
         \fwrite($sheetFilePointer, self::SHEET_XML_FILE_HEADER);
         \fwrite($sheetFilePointer, '<sheetData>');
+
+        $xlFolder = $this->fileSystemHelper->getXlFolder();
+
+        $this->commentsManager = new CommentsManager($xlFolder, $this->stringsEscaper, $worksheet->getId());
+        
+        $this->createWorksheetRels($worksheet);
+    }
+
+    /**
+     * Makes sure that the comments file is put into the worksheet relationships
+     */
+    private function createWorksheetRels($worksheet)
+    {
+        $fshelper = $this->fileSystemHelper;
+        $sheetsFolder = $fshelper->getXlWorksheetsFolder();
+
+        $sheetId = $worksheet->getId();
+        if (!\file_exists($sheetsFolder . '/_rels')) {
+            $relsFolder = $fshelper->createFolder($sheetsFolder, "_rels");
+            $relsFileName = "sheet" . $sheetId . ".xml.rels";
+            $relsFileContents = '
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId_comments' . $sheetId . '" 
+                            Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" 
+                            Target="../comments' . $sheetId . '.xml"/>
+            </Relationships>';
+                    
+            $fshelper->createFileWithContents($relsFolder, $relsFileName, $relsFileContents);
+        }
     }
 
     /**
@@ -161,6 +208,10 @@ EOD;
 
         foreach ($row->getCells() as $columnIndexZeroBased => $cell) {
             $rowXML .= $this->applyStyleAndGetCellXML($cell, $rowStyle, $rowIndexOneBased, $columnIndexZeroBased);
+            if ($cell->hasComment()) {
+                $cellRef = CellHelper::getColumnLettersFromColumnIndex($columnIndexZeroBased) . $rowIndexOneBased;
+                $this->getCommentsManager()->writeComment($cell->getComment(), $cellRef);
+            }
         }
 
         $rowXML .= '</row>';
@@ -273,5 +324,6 @@ EOD;
         \fwrite($worksheetFilePointer, '</sheetData>');
         \fwrite($worksheetFilePointer, '</worksheet>');
         \fclose($worksheetFilePointer);
+        $this->getCommentsManager()->close();
     }
 }
